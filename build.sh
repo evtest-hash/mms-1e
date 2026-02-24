@@ -175,8 +175,13 @@ case "${MODE}" in
         create_app_bundle
         create_dmg
         ;;
+    clean)
+        echo "Cleaning..."
+        rm -rf .build build
+        echo "Done."
+        ;;
     *)
-        echo "Usage: $0 [debug|release|dmg]"
+        echo "Usage: $0 [debug|release|dmg|clean]"
         exit 1
         ;;
 esac
