@@ -1,0 +1,145 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Universal DMG
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show environment
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Generate app icon
+        run: |
+          mkdir -p Resources build/AppIcon.iconset
+          python3 scripts/gen_icon.py
+
+      - name: Build Universal Binary
+        run: swift build -c release --arch arm64 --arch x86_64
+
+      - name: Verify architectures
+        run: |
+          file .build/apple/Products/Release/MMS1eImager
+          file .build/apple/Products/Release/mms-writer
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="0.0.0-dev"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Version: ${VERSION}"
+
+      - name: Update version in Info.plist
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i '' "s|<string>1.0.0</string>|<string>${VERSION}</string>|" Resources/Info.plist
+
+      - name: Create .app bundle
+        run: |
+          APP_BUNDLE="build/MMS1eImager.app"
+          mkdir -p "${APP_BUNDLE}/Contents/MacOS"
+          mkdir -p "${APP_BUNDLE}/Contents/Resources"
+
+          cp .build/apple/Products/Release/MMS1eImager "${APP_BUNDLE}/Contents/MacOS/"
+          cp .build/apple/Products/Release/mms-writer  "${APP_BUNDLE}/Contents/MacOS/"
+          cp Resources/Info.plist       "${APP_BUNDLE}/Contents/"
+          cp Resources/AppIcon.icns     "${APP_BUNDLE}/Contents/Resources/"
+          echo -n "APPL????" > "${APP_BUNDLE}/Contents/PkgInfo"
+
+          echo "--- Verify bundle ---"
+          file "${APP_BUNDLE}/Contents/MacOS/MMS1eImager"
+          vtool -show-build "${APP_BUNDLE}/Contents/MacOS/MMS1eImager" | grep minos
+
+      - name: Create DMG
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG_NAME="MMS1e-SD-Card-Imager-${VERSION}"
+          VOLUME_NAME="MMS-1e SD Card Imager"
+          DMG_RW="build/_tmp_rw.dmg"
+          DMG_FINAL="build/${DMG_NAME}.dmg"
+          STAGING="build/_dmg_staging"
+
+          mkdir -p "${STAGING}"
+          cp -R build/MMS1eImager.app "${STAGING}/"
+          ln -s /Applications "${STAGING}/Applications"
+
+          SIZE_KB=$(( $(du -sk "${STAGING}" | awk '{print $1}') + 10240 ))
+
+          hdiutil create -size "${SIZE_KB}k" -fs HFS+ \
+            -volname "${VOLUME_NAME}" -type UDIF -layout NONE "${DMG_RW}"
+
+          MOUNT_OUTPUT=$(hdiutil attach -readwrite -noverify -noautoopen "${DMG_RW}")
+          DEVICE=$(echo "${MOUNT_OUTPUT}" | grep '/dev/disk' | head -1 | awk '{print $1}')
+
+          cp -R "${STAGING}/"* "/Volumes/${VOLUME_NAME}/"
+
+          # Set Finder layout
+          osascript <<EOF
+          tell application "Finder"
+            tell disk "${VOLUME_NAME}"
+              open
+              delay 2
+              set current view of container window to icon view
+              set toolbar visible of container window to false
+              set statusbar visible of container window to false
+              set the bounds of container window to {200, 120, 720, 400}
+              set theViewOptions to the icon view options of container window
+              set arrangement of theViewOptions to not arranged
+              set icon size of theViewOptions to 80
+              set position of item "MMS1eImager.app" of container window to {130, 140}
+              set position of item "Applications" of container window to {390, 140}
+              close
+            end tell
+          end tell
+          EOF
+
+          sync && sleep 2
+          hdiutil detach "${DEVICE}" -quiet 2>/dev/null || hdiutil detach "${DEVICE}" -force -quiet
+
+          hdiutil convert "${DMG_RW}" -format UDZO -imagekey zlib-level=9 -o "${DMG_FINAL}"
+
+          rm -f "${DMG_RW}"
+          rm -rf "${STAGING}"
+
+          ls -lh "${DMG_FINAL}"
+          echo "dmg_path=${DMG_FINAL}" >> "$GITHUB_OUTPUT"
+          echo "dmg_name=${DMG_NAME}.dmg" >> "$GITHUB_OUTPUT"
+        id: dmg
+
+      - name: Upload DMG as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MMS1e-SD-Card-Imager
+          path: ${{ steps.dmg.outputs.dmg_path }}
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "MMS-1e SD Card Imager ${{ steps.version.outputs.version }}"
+          body: |
+            ## MMS-1e SD Card Imager ${{ steps.version.outputs.version }}
+
+            ### 系统要求
+            - macOS 10.15 Catalina 及以上
+            - Universal Binary (Intel + Apple Silicon)
+
+            ### 安装
+            下载 `.dmg` 文件，打开后将应用拖入 Applications 文件夹即可。
+          files: ${{ steps.dmg.outputs.dmg_path }}
+          draft: false
+          prerelease: false
