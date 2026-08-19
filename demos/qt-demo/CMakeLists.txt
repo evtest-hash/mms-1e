@@ -17,10 +17,10 @@ qt_add_executable(mms1e-qt-demo
     src/app/WriterController.cpp
 )
 
-qt_add_qml_module(mms1e-qt-demo
-    URI MMS1eDemo
-    VERSION 1.0
-    QML_FILES src/qml/Main.qml
+# 内嵌 QML 为资源（兼容 Qt 6.4，避免 loadFromModule 的 6.5+ 依赖）
+qt_add_resources(mms1e-qt-demo "qml"
+    PREFIX "/qml"
+    FILES src/qml/Main.qml
 )
 
 target_link_libraries(mms1e-qt-demo PRIVATE

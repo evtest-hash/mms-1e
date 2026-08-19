@@ -8,6 +8,7 @@
 #include <QQmlContext>
 #include <QQuickWindow>
 #include <QTimer>
+#include <QUrl>
 
 static QQuickWindow *windowOf(QQmlApplicationEngine &engine)
 {
@@ -40,7 +41,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("writer"), &controller);
     engine.rootContext()->setContextProperty(QStringLiteral("deviceModel"), &deviceModel);
-    engine.loadFromModule(QStringLiteral("MMS1eDemo"), QStringLiteral("Main"));
+    engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
 
     if (engine.rootObjects().isEmpty()) {
         qWarning("QML 加载失败");
