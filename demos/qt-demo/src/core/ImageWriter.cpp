@@ -20,7 +20,7 @@ bool ImageWriter::run(const Options &opts, BlockDeviceIO *io)
         emit finished(false, parseError);
         return false;
     }
-    fprintf(stderr, "IW: parsed ok, ranges=%lld\n", long long(bmap.ranges.size()));
+    fprintf(stderr, "IW: parsed ok, ranges=%lld\n", static_cast<long long>(bmap.ranges.size()));
     emit logLine(QStringLiteral("bmap 解析完成: %1 个区段, %2 个 mapped 块, 块大小 %3 字节")
                      .arg(bmap.ranges.size())
                      .arg(bmap.mappedBlocksCount)
@@ -91,7 +91,7 @@ bool ImageWriter::run(const Options &opts, BlockDeviceIO *io)
 
         copiedBlocks += range.blockCount();
         emit progressChanged(int(copiedBlocks * 100 / totalBlocks));
-        fprintf(stderr, "IW: range done, copied=%lld\n", long long(copiedBlocks));
+        fprintf(stderr, "IW: range done, copied=%lld\n", static_cast<long long>(copiedBlocks));
     }
 
     fprintf(stderr, "IW: all ranges done, flushing\n");
