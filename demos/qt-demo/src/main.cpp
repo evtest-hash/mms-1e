@@ -53,6 +53,12 @@ int main(int argc, char *argv[])
     if (!demoDir.isEmpty()) {
         bool writingShotTaken = false;
 
+        // 兜底：无论流程如何，8 秒后强制退出（防止意外卡住导致挂起）
+        QTimer::singleShot(8000, [&] {
+            fprintf(stderr, "MAIN: FALLBACK timeout, forcing quit\n");
+            app.quit();
+        });
+
         QTimer::singleShot(900, [&] {
             controller.demoSetup(demoDir);
             if (auto *win = windowOf(engine))
