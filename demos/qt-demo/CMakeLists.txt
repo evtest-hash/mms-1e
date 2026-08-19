@@ -20,6 +20,7 @@ qt_add_executable(mms1e-qt-demo
 # 内嵌 QML 为资源（兼容 Qt 6.4，避免 loadFromModule 的 6.5+ 依赖）
 qt_add_resources(mms1e-qt-demo "qml"
     PREFIX "/qml"
+    BASE "src/qml"
     FILES src/qml/Main.qml
 )
 
