@@ -83,14 +83,20 @@ void WriterController::startWrite()
         ImageWriter::Options opts{image, bmap, dev, &m_cancel, /*demoDelayMs=*/25};
         const bool ok = writer.run(opts, &io);
 
-        m_writing.store(false);
-        emit isWritingChanged();
-        emit canStartChanged();
+        // 关键：后续信号必须在主线程发射。
+        // this 的线程亲和性是主线程，但这里是在 QtConcurrent 工作线程里直接 emit：
+        // 同对象连接的 AutoConnection 会解析成直连，导致槽/定时器在无事件循环的
+        // 工作线程执行（QTimer::singleShot 永不触发）。用 invokeMethod 切回主线程。
+        QMetaObject::invokeMethod(this, [this, ok] {
+            m_writing.store(false);
+            emit isWritingChanged();
+            emit canStartChanged();
 
-        m_status = ok ? QStringLiteral("烧录完成") : QStringLiteral("烧录失败");
-        emit statusMessageChanged();
-        fprintf(stderr, "WC: emitting writingFinished ok=%d\n", ok ? 1 : 0);
-        emit writingFinished(ok, ok ? QStringLiteral("烧录完成！") : QStringLiteral("烧录失败"));
+            m_status = ok ? QStringLiteral("烧录完成") : QStringLiteral("烧录失败");
+            emit statusMessageChanged();
+            fprintf(stderr, "WC: emitting writingFinished ok=%d\n", ok ? 1 : 0);
+            emit writingFinished(ok, ok ? QStringLiteral("烧录完成！") : QStringLiteral("烧录失败"));
+        }, Qt::QueuedConnection);
     });
 }
 
