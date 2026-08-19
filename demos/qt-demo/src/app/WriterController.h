@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFuture>
 #include <QObject>
 #include <QString>
 #include <atomic>
@@ -49,6 +50,7 @@ signals:
     void writingFinished(bool ok, const QString &message);
 
 private:
+    QFuture<void> m_future;   // 持有后台写盘任务的 future（避免 nodiscard，并保持任务存活）
     QString m_imagePath;
     QString m_bmapPath;
     QString m_devicePath;

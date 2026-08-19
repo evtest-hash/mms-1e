@@ -5,6 +5,8 @@
 
 #include <QtConcurrent>
 
+WriterController::WriterController(QObject *parent) : QObject(parent) {}
+
 bool WriterController::canStart() const
 {
     return !m_writing.load() && !m_imagePath.isEmpty() && !m_bmapPath.isEmpty()
@@ -67,7 +69,7 @@ void WriterController::startWrite()
     const QString bmap = m_bmapPath;
     const QString dev = m_devicePath;
 
-    QtConcurrent::run([this, image, bmap, dev] {
+    m_future = QtConcurrent::run([this, image, bmap, dev] {
         ImageWriter writer;
         BlockDeviceFile io;
 
