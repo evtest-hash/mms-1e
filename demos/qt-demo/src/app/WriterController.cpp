@@ -4,6 +4,7 @@
 #include "../core/ImageWriter.h"
 
 #include <QtConcurrent>
+#include <cstdio>
 
 WriterController::WriterController(QObject *parent) : QObject(parent) {}
 
@@ -88,6 +89,7 @@ void WriterController::startWrite()
 
         m_status = ok ? QStringLiteral("烧录完成") : QStringLiteral("烧录失败");
         emit statusMessageChanged();
+        fprintf(stderr, "WC: emitting writingFinished ok=%d\n", ok ? 1 : 0);
         emit writingFinished(ok, ok ? QStringLiteral("烧录完成！") : QStringLiteral("烧录失败"));
     });
 }

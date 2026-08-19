@@ -4,6 +4,7 @@
 
 #include <QDebug>
 #include <QGuiApplication>
+#include <cstdio>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWindow>
@@ -69,9 +70,12 @@ int main(int argc, char *argv[])
         });
 
         QObject::connect(&controller, &WriterController::writingFinished, [&](bool, const QString &) {
+            fprintf(stderr, "MAIN: writingFinished received\n");
             QTimer::singleShot(300, [&] {
+                fprintf(stderr, "MAIN: timer fired, grabbing shot-3\n");
                 if (auto *win = windowOf(engine))
                     win->grabWindow().save(demoDir + QStringLiteral("/shot-3-done.png"));
+                fprintf(stderr, "MAIN: quit\n");
                 app.quit();
             });
         });

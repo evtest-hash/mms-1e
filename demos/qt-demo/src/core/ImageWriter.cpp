@@ -5,11 +5,13 @@
 #include <QFile>
 #include <QtGlobal>
 #include <QThread>
+#include <cstdio>
 
 ImageWriter::ImageWriter(QObject *parent) : QObject(parent) {}
 
 bool ImageWriter::run(const Options &opts, BlockDeviceIO *io)
 {
+    fprintf(stderr, "IW: start run\n");
     BmapFile bmap;
     BmapParser parser;
     QString parseError;
@@ -18,6 +20,7 @@ bool ImageWriter::run(const Options &opts, BlockDeviceIO *io)
         emit finished(false, parseError);
         return false;
     }
+    fprintf(stderr, "IW: parsed ok, ranges=%lld\n", long long(bmap.ranges.size()));
     emit logLine(QStringLiteral("bmap 解析完成: %1 个区段, %2 个 mapped 块, 块大小 %3 字节")
                      .arg(bmap.ranges.size())
                      .arg(bmap.mappedBlocksCount)
@@ -40,6 +43,7 @@ bool ImageWriter::run(const Options &opts, BlockDeviceIO *io)
         emit finished(false, msg);
         return false;
     }
+    fprintf(stderr, "IW: device opened+truncated, entering range loop\n");
 
     const quint64 chunkSize = 1024 * 1024;  // 1 MB
     QByteArray buffer;
@@ -87,8 +91,10 @@ bool ImageWriter::run(const Options &opts, BlockDeviceIO *io)
 
         copiedBlocks += range.blockCount();
         emit progressChanged(int(copiedBlocks * 100 / totalBlocks));
+        fprintf(stderr, "IW: range done, copied=%lld\n", long long(copiedBlocks));
     }
 
+    fprintf(stderr, "IW: all ranges done, flushing\n");
     io->flush();
     const quint64 writtenMiB = copiedBlocks * bmap.blockSize / (1024 * 1024);
     emit logLine(QStringLiteral("✓ 写入完成：共写入 %1 个块 (%2 MB)").arg(copiedBlocks).arg(writtenMiB));
